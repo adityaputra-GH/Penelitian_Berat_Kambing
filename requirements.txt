@@ -1,0 +1,8 @@
+streamlit
+ultralytics
+streamlit-webrtc
+av
+twilio
+openpyxl
+Pillow
+numpy
