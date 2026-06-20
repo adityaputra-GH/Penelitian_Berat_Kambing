@@ -13,10 +13,8 @@ except ImportError:
 # ---------------------------------------
 
 import streamlit as st
-import cv2
 import numpy as np
 from ultralytics import YOLO
-from twilio.rest import Client
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 import threading
