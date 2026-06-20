@@ -6,3 +6,4 @@ openpyxl
 Pillow
 av
 numpy
+twilio
