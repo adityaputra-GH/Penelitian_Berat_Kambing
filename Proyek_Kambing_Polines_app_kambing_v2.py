@@ -1,3 +1,17 @@
+import subprocess
+import sys
+
+# --- SURGICAL PATCH: BYPASS OS ERROR ---
+# Mencegat error libGL/libgthread dengan memaksa server membuang 
+# OpenCV berat dan menggantinya dengan versi headless secara otomatis.
+try:
+    import cv2
+except ImportError:
+    subprocess.run([sys.executable, "-m", "pip", "uninstall", "-y", "opencv-python", "opencv-python-headless"])
+    subprocess.run([sys.executable, "-m", "pip", "install", "opencv-python-headless"])
+    import cv2
+# ---------------------------------------
+
 import streamlit as st
 import cv2
 import numpy as np
