@@ -2,6 +2,7 @@ import streamlit as st
 import cv2
 import numpy as np
 from ultralytics import YOLO
+from twilio.rest import Client
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 import threading
@@ -13,9 +14,20 @@ st.title("⚖️ Estimasi Berat Badan Kambing")
 st.caption("Aplikasi Teknologi Fotogrametri Digital | Tim Peneliti Politeknik Negeri Semarang")
 
 # Konfigurasi STUN Server agar WebRTC berjalan stabil di jaringan publik (Internet)
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"]}]}
-)
+# Fungsi dinamis mengambil pelayan relai TURN dari Twilio
+@st.cache_resource
+def get_ice_servers():
+    try:
+        account_sid = st.secrets["TWILIO_ACCOUNT_SID"]
+        auth_token = st.secrets["TWILIO_AUTH_TOKEN"]
+        client = Client(account_sid, auth_token)
+        token = client.tokens.create()
+        return token.ice_servers
+    except Exception as e:
+        st.warning("Gagal menyambung ke Twilio. Menggunakan fallback STUN.")
+        return [{"urls": ["stun:stun.l.google.com:19302"]}]
+
+RTC_CONFIGURATION = RTCConfiguration({"iceServers": get_ice_servers()})
 
 # 2. Load Model AI (Menggunakan Cache agar tidak reload terus-menerus)
 @st.cache_resource
@@ -115,9 +127,7 @@ with col1:
     ctx = webrtc_streamer(
         key="goat-photogrammetry",
         video_processor_factory=GoatVideoProcessor,
-        rtc_configuration=RTCConfiguration(
-            {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-        ),
+        rtc_configuration=RTC_CONFIGURATION, # <-- Ubah baris ini saja
         media_stream_constraints={"video": True, "audio": False},
         async_processing=True,
     )
