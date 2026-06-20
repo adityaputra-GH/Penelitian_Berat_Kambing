@@ -1,7 +1,16 @@
-name: app-env
+name: kambing-env
 channels:
   - conda-forge
 dependencies:
   - python=3.10
   - opencv
+  - streamlit
+  - ultralytics
+  - streamlit-webrtc
+  - av
+  - openpyxl
+  - pillow
+  - numpy
   - pip
+  - pip:
+    - twilio
