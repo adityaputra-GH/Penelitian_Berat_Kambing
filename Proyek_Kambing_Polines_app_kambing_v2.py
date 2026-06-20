@@ -41,6 +41,7 @@ except Exception as e:
     st.error(f"Gagal memuat file model 'best.pt'. Pastikan file tersebut berada di folder yang sama dengan script ini. Detail: {e}")
 
 # 3. Class Video Processor untuk Mengolah Stream Kamera Klient
+
 class GoatVideoProcessor(VideoProcessorBase):
     def __init__(self):
         self.lock = threading.Lock()
@@ -48,7 +49,11 @@ class GoatVideoProcessor(VideoProcessorBase):
         self.tinggi_cm = 0.0
         self.luas_px = 0.0
         self.berat_kg = 0.0
-
+        # --- KODE BARU: Memori untuk 10 frame terakhir ---
+        self.buffer_berat = [] 
+        self.buffer_panjang = []
+        self.buffer_tinggi = []
+        
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
         # Konversi frame WebRTC ke matriks gambar OpenCV (BGR)
         img = frame.to_ndarray(format="bgr24")
@@ -93,13 +98,22 @@ class GoatVideoProcessor(VideoProcessorBase):
             estimasi_berat_kg = (luas_area_total * 0.00015) + 5
         else:
             estimasi_berat_kg = 0.0
+
+        # --- KODE BARU: Logika Moving Average ---
+        self.buffer_berat.append(estimasi_berat_kg)
+        self.buffer_panjang.append(panjang_cm)
+        self.buffer_tinggi.append(tinggi_cm)
+        
+        # Jaga agar memori tidak lebih dari 10 frame (sekitar 2 detik peredaman)
+        if len(self.buffer_berat) > 10:
+            self.buffer_berat.pop(0)
+            self.buffer_panjang.pop(0)
+            self.buffer_tinggi.pop(0)
             
-        # Simpan data ke dalam variable internal Class agar bisa diakses jika diperlukan
-        with self.lock:
-            self.panjang_cm = panjang_cm
-            self.tinggi_cm = tinggi_cm
-            self.luas_px = luas_area_total
-            self.berat_kg = estimasi_berat_kg
+        # Hitung nilai rata-rata yang stabil
+        berat_stabil = sum(self.buffer_berat) / len(self.buffer_berat)
+        panjang_stabil = sum(self.buffer_panjang) / len(self.buffer_panjang)
+        tinggi_stabil = sum(self.buffer_tinggi) / len(self.buffer_tinggi)
             
         # --- DESAIN OVERLAY HUD (HEADS-UP DISPLAY) TEKNIS PADA VIDEO ---
         # Membuat kotak semi-transparan di pojok kiri atas video agar pembacaan data di lapangan sangat mudah
@@ -108,10 +122,10 @@ class GoatVideoProcessor(VideoProcessorBase):
         cv2.addWeighted(overlay, 0.65, img, 0.35, 0, img)
         
         # Teks parameter pengukuran lapangan
-        cv2.putText(img, "📊 DIGITAL PHOTOGRAMMETRY HUD", (25, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 2)
-        cv2.putText(img, f"Total Panjang : {panjang_cm:.1f} cm", (25, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(img, f"Total Tinggi  : {tinggi_cm:.1f} cm", (25, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        cv2.putText(img, f"Estimasi Berat: {estimasi_berat_kg:.2f} kg", (25, 122), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        cv2.putText(img, "DIGITAL PHOTOGRAMMETRY HUD", (25, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 2)
+        cv2.putText(img, f"Total Panjang : {panjang_stabil:.1f} cm", (25, 65), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(img, f"Total Tinggi  : {tinggi_stabil:.1f} cm", (25, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(img, f"Estimasi Berat: {berat_stabil:.2f} kg", (25, 122), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         
         # Kembalikan frame video yang sudah diproses AI ke layar client
         return av.VideoFrame.from_ndarray(img, format="bgr24")
